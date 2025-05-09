@@ -17,29 +17,20 @@ table = dynamodb.Table(DDB_TABLE)
 sm = boto3.client("secretsmanager")
 
 _key_cache: dict[str, str] = {}
-_cache_initialized: bool = False
-
 security = HTTPBearer()
 
-def load_all_arns() -> None:
 
-    global _cache_initialized
-    try: 
-        resp = table.scan()
-    except Exception:
-        return
-    
-    items = resp.get("Items", []) or []
-    for item in items:
-        if "UserID" in item and "ARNKey" in item:
-            _key_cache[item["UserID"]] = item["ARNKey"]
+try: 
+    resp = table.scan()
+except Exception:
+    raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Unable to retrieve ARN table")
 
-    _cache_initialized = True
+items = resp.get("Items", []) or []
+for item in items:
+    if "UserID" in item and "ARNKey" in item:
+        _key_cache[item["UserID"]] = item["ARNKey"]
 
 def get_arn_for_user(user_id: str) ->  Optional[str]:
-    global _cache_initialized
-    if not _cache_initialized:
-        load_all_arns()
     return _key_cache.get(user_id)
 
 def get_secret_value(secret_arn: str) -> Optional[str]:
