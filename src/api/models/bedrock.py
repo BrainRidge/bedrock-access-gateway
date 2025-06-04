@@ -277,7 +277,7 @@ class BedrockModel(BaseChatModel):
                     }
                 )
             elif isinstance(message, AssistantMessage):
-                if message.content.strip():
+                if message.content and message.content.strip():
                     # Text message
                     messages.append(
                         {
@@ -324,9 +324,9 @@ class BedrockModel(BaseChatModel):
             else:
                 # ignore others, such as system messages
                 continue
-        return self._reframe_multi_payloard(messages)
+        return self._reframe_multi_payload(messages)
 
-    def _reframe_multi_payloard(self, messages: list) -> list:
+    def _reframe_multi_payload(self, messages: list) -> list:
         """Receive messages and reformat them to comply with the Claude format
 
         With OpenAI format requests, it's not a problem to repeatedly receive messages from the same role, but
