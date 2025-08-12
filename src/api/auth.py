@@ -12,6 +12,7 @@ from api.setting import DEFAULT_API_KEYS
 
 logger = logging.getLogger(__name__)
 aws_internal = os.environ.get("AWS_BEDROCK_GATEWAY_INTERNAL")
+security = HTTPBearer()
 if aws_internal:
     logger.info("Running in AWS internal mode")
 else:
@@ -24,7 +25,6 @@ else:
     sm = boto3.client("secretsmanager")
 
     _key_cache: dict[str, str] = {}
-    security = HTTPBearer()
 
     try:
         resp = table.scan()
