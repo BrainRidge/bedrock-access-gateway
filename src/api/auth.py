@@ -1,5 +1,6 @@
 import os
 import json
+import logging
 from typing import Annotated, Optional
 
 import boto3
@@ -9,26 +10,31 @@ from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 
 from api.setting import DEFAULT_API_KEYS
 
-DDB_TABLE = os.environ["API_KEYS_TABLE_NAME"]
-api_key_env = os.environ.get("API_KEY")
+logger = logging.getLogger(__name__)
+aws_internal = os.environ.get("AWS_BEDROCK_GATEWAY_INTERNAL")
+if aws_internal:
+    logger.info("Running in AWS internal mode")
+else:
+    logger.info("Running in local mode using Dynamo DB")
+    DDB_TABLE = os.environ["API_KEYS_TABLE_NAME"]
+    api_key_env = os.environ.get("API_KEY")
 
-dynamodb = boto3.resource("dynamodb")
-table = dynamodb.Table(DDB_TABLE)
-sm = boto3.client("secretsmanager")
+    dynamodb = boto3.resource("dynamodb")
+    table = dynamodb.Table(DDB_TABLE)
+    sm = boto3.client("secretsmanager")
 
-_key_cache: dict[str, str] = {}
-security = HTTPBearer()
+    _key_cache: dict[str, str] = {}
+    security = HTTPBearer()
 
+    try:
+        resp = table.scan()
+    except Exception:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Unable to retrieve ARN table")
 
-try: 
-    resp = table.scan()
-except Exception:
-    raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Unable to retrieve ARN table")
-
-items = resp.get("Items", []) or []
-for item in items:
-    if "UserID" in item and "ARNKey" in item:
-        _key_cache[item["UserID"]] = item["ARNKey"]
+    items = resp.get("Items", []) or []
+    for item in items:
+        if "UserID" in item and "ARNKey" in item:
+            _key_cache[item["UserID"]] = item["ARNKey"]
 
 def get_arn_for_user(user_id: str) ->  Optional[str]:
     return _key_cache.get(user_id)
@@ -49,6 +55,9 @@ def get_secret_value(secret_arn: str) -> Optional[str]:
 def api_key_auth(
     credentials: Annotated[HTTPAuthorizationCredentials, Depends(security)],
 ):
+    if aws_internal:
+        return
+
     token = credentials.credentials
 
     prefix = "key:"
