@@ -34,8 +34,6 @@ async def chat_completions(
         ),
     ],
 ):
-    if chat_request.model.lower().startswith("gpt-"):
-        chat_request.model = DEFAULT_MODEL
 
     # Exception will be raised if model not supported.
     model = BedrockModel()
